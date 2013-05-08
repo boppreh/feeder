@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+from HTMLParser import HTMLParser
 
 class Feed(object):
     """
@@ -40,13 +41,14 @@ class Feed(object):
 
         if '<entry>' in content:
             item_regex = '<entry[^>]*>(.+?)</entry>'
-            link_regex = '<link[^>]+?href="([^"]+)"[^>]*/?>'
+            link_regex = '''<link[^>]+?href="|'([^"']+)"|'[^>]*/?>'''
         elif '<item>' in content:
             item_regex = '<item>(.+?)</item>'
             link_regex = '<link[^>]*>(.+?)</link>'
 
         for item_text in re.findall(item_regex, content, re.DOTALL):
-            yield re.findall(link_regex, item_text, re.DOTALL)[0].strip()
+            link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
+            yield HTMLParser().unescape(link)
 
     def is_read(self, link):
         """
