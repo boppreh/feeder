@@ -1,7 +1,6 @@
 import os
 import re
 import requests
-from itertools import starmap
 
 class Feed(object):
     """
@@ -9,9 +8,27 @@ class Feed(object):
     """
     items_read = None
     read_file_path = 'read.txt'
+    feeds_file_path = 'feeds.txt'
 
-    def __init__(self, name, url):
-        self.name = name
+    @staticmethod
+    def all_feeds():
+        """
+        Returns all feeds from the feeds file.
+        """
+        with open(Feed.feeds_file_path) as feeds_file:
+            return map(Feed, feeds_file.read().split())
+
+    @staticmethod
+    def load_read_entries():
+        """
+        Loads the list of entries read.
+        """
+        if os.path.exists(Feed.read_file_path):
+            Feed.items_read = set(open(Feed.read_file_path).read().split())
+        else:
+            Feed.items_read = set()
+
+    def __init__(self, url):
         self.url = url
         self.entries = None
 
@@ -36,10 +53,7 @@ class Feed(object):
         Returns True if `link` has already been marked as read.
         """
         if Feed.items_read is None:
-            if os.path.exists(Feed.read_file_path):
-                Feed.items_read = set(open(Feed.read_file_path).read().split())
-            else:
-                Feed.items_read = set()
+            Feed.load_read_entries()
 
         return link in Feed.items_read
 
@@ -62,18 +76,18 @@ class Feed(object):
         with open(Feed.read_file_path, 'a') as read_file:
             read_file.write(entry + '\n')
 
-    def __str__(self):
-        return 'Feed({} [{}])'.format(self.name, self.url)
-
-def import_feeds(subscription_path='subscriptions.xml'):
+def import_feeds(subscription_path):
     """
-    Import Google Reader subscriptions file.
+    Import Google Reader subscriptions file and write the feeds found to the
+    feeds file.
     """
     with open(subscription_path) as subscription_file:
         content = subscription_file.read()
-        titles = re.findall('title="(.+?)"', content)
-        urls = re.findall('xmlUrl="(.+?)"', content)
-        return list(starmap(Feed, zip(titles, urls)))
+
+    urls = re.findall('xmlUrl="(.+?)"', content)
+
+    with open(Feed.feeds_file_path, 'a') as feeds_file:
+        feeds_file.write('\n'.join(urls) + '\n')
 
 if __name__ == '__main__':
     if os.path.exists(Feed.read_file_path):
@@ -89,8 +103,12 @@ if __name__ == '__main__':
 
     import webbrowser
 
-    for feed in import_feeds():
-        print feed.name
+    if os.path.exists('subscriptions.xml'):
+        import_feeds('subscriptions.xml')
+        os.rename('subscriptions.xml', 'subscriptions (already imported).xml')
+
+    for feed in Feed.all_feeds():
+        print feed.url
         for entry in feed.unread():
             print entry
             if do_display:

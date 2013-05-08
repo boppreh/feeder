@@ -3,7 +3,9 @@
 #################
 
 subscriptions.xml
+subscriptions (already parsed).xml
 read.txt
+feeds.txt
 
 *.pydevproject
 .project
