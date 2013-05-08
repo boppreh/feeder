@@ -7,12 +7,21 @@ your browser and saves the stuff you've read in `read.txt`.
 
 This little program is the result of my very specific, very simple needs. I
 have a dozen RSS feeds that I read daily, in their entirety, in only one device,
-without using folders or stars or anything.
+without using folders or stars or anything. If this is not your case, please be
+very careful and review the source code before running it.
 
-**WARNING**
+Limitations
 -----------
 
-`read.txt` is just a list of the URLs seen, there is no "mark as unread", no
-follow or star or comment or tag or folder, and the first time you run it it'll
-open *everything* in your feeds unless you comment that line from the (tiny)
-source code. Also, it uses very stupid regexes to parse the feeds.
+- `read.txt` is just a list of the URLs seen, of all feeds, chronologically
+
+- there is no "mark as unread" (but you can change the file manually)
+
+- there is no follow or star or comment or tag or folder
+
+- uses very stupid regexes to parse the feeds
+
+- feed titles displayed in console have no care about encodings
+
+- `read.txt` can get very large (you can always remove the first items
+  manually, though)
