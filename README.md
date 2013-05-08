@@ -10,18 +10,38 @@ have a dozen RSS feeds that I read daily, in their entirety, in only one device,
 without using folders or stars or anything. If this is not your case, please be
 very careful and review the source code before running it.
 
-Limitations
+
+Pros
+----
+
+- doesn't depend on external servers and can't be shutdown
+
+- easy to review items you have read and your feed list
+
+- trivial exporting to other services
+
+- no required input
+
+- easily extensible
+
+- plays well with sync software
+
+
+Cons
 -----------
 
-- `read.txt` is just a list of the URLs seen, of all feeds, chronologically
+- no pretty feed titles, stars, folders, tags or comments
 
-- there is no "mark as unread" (but you can change the file manually)
+- no social features whatsoever
 
-- there is no follow or star or comment or tag or folder
+- "mark as unread" is a manual action
 
 - uses very stupid regexes to parse the feeds
 
-- feed titles displayed in console have no care about encodings
+- `read.txt` can get large (I'll add automatic trimming later on)
 
-- `read.txt` can get very large (you can always remove the first items
-  manually, though)
+- if you miss an item and it falls off the feed list, it's lost for good
+
+- takes a moment to fetch all feeds
+
+- no preview, opens everything regardless of your opinion
