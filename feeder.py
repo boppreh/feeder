@@ -81,11 +81,11 @@ if __name__ == '__main__':
     else:
         print "It seems this is the first time you are running feeder."
         print "As you have no entries read, all your feeds will be open in "
-        print "your browser, which may be a overwhelming."
+        print "your browser, which may be overwhelming."
         print ""
         print "Do you want to mark all entries as read, starting in a clean"
         print "slate? (Y/n)"
-        do_display = raw_input().lower() != 'n'
+        do_display = raw_input().lower() == 'n'
 
     import webbrowser
 
