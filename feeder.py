@@ -41,7 +41,7 @@ class Feed(object):
 
         if '<entry>' in content:
             item_regex = '<entry[^>]*>(.+?)</entry>'
-            link_regex = '''<link[^>]+?href="|'([^"']+)"|'[^>]*/?>'''
+            link_regex = '''<link[^>]+?href=.([^'"]+)'''
         elif '<item>' in content:
             item_regex = '<item>(.+?)</item>'
             link_regex = '<link[^>]*>(.+?)</link>'
