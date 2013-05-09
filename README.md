@@ -38,10 +38,8 @@ Cons
 
 - uses very stupid regexes to parse the feeds
 
-- `read.txt` can get large (I'll add automatic trimming later on)
-
 - if you miss an item and it falls off the feed list, it's lost for good
 
-- takes a moment to fetch all feeds
+- takes a moment to fetch all feeds (but does so in parallel)
 
 - no preview, opens everything regardless of your opinion
