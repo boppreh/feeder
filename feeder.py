@@ -77,6 +77,7 @@ def bounded_parallel_run(functions, max_concurrent=8):
     at the same time. Roughly equivalent to ThreadPoolExecutor in Python 3k.
     """
     from threading import Thread, Semaphore
+    import sys
 
     threads = []
     semaphore = Semaphore(max_concurrent)
@@ -84,8 +85,10 @@ def bounded_parallel_run(functions, max_concurrent=8):
     def run_locked(function):
         semaphore.acquire()
         function()
+        sys.stdout.write('.')
         semaphore.release()
         
+    sys.stdout.write('#' * len(functions) + '\n')
     for function in functions:
         thread = Thread(target=run_locked, args=(function,))
         thread.start()
@@ -106,11 +109,12 @@ if __name__ == '__main__':
     if os.path.exists('read.txt'):
         # Common path, opens all unread entries.
         Feed.load_entries_read_list('read.txt')
-        bounded_parallel_run((feed.open_all_unread for feed in Feed.feeds))
+        bounded_parallel_run([feed.open_all_unread for feed in Feed.feeds])
     else:
         # First execution path, doesn't open anything.
         print "`read.txt` not found, marking all feeds' items as read."
         for feed in Feed.feeds:
+            print 'Loading entries from', feed.url
             feed.fetch()
 
     # Cleans entries file and save the new entries.
