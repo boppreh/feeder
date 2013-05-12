@@ -54,7 +54,7 @@ class Feed(object):
         Open all feed entries not in Feed.entries_read in a new webbrowser tab.
         """
         self.fetch()
-        for entry in self.entries:
+        for entry in reversed(self.entries):
             if entry not in Feed.entries_read:
                 webbrowser.open(entry)
 
