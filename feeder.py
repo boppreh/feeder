@@ -14,7 +14,7 @@ class Feed(object):
     @staticmethod
     def load_entries_read_list(path):
         """ Loads the entries from `path` into a static class attribute.  """
-        Feed.entries_read = open(path).read().split()
+        Feed.entries_read = set(open(path).read().split())
 
     @staticmethod
     def load_feeds_list(path):
@@ -54,6 +54,18 @@ class Feed(object):
         Open all feed entries not in Feed.entries_read in a new webbrowser tab.
         """
         self.fetch()
+        unread = list(reversed([entry for entry in self.entries
+                                if entry not in Feed.entries_read]))
+
+        if len(unread) > 5:
+            print 'Feed {} has {} unread entries, which is a lot.'.format(self.url, len(unread))
+            print 'Are you sure you want to open all those in your browser?'
+            option = raw_input('(y/N)')
+            if option != 'y':
+                # Discard the entries unread.
+                self.entries = list(Feed.entries_read.intersection(self.entries))
+                return
+
         for entry in reversed(self.entries):
             if entry not in Feed.entries_read:
                 webbrowser.open(entry)
