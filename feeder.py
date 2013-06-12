@@ -40,7 +40,6 @@ class Feed(object):
         content = requests.get(self.url).content
         if '</html>' in content:
             self.entries.append(self.url + '#' + simplecrypto.hash(content))
-            print self.url + '#' + simplecrypto.hash(content)
             return
 
         if '<entry>' in content:
