@@ -39,7 +39,8 @@ class Feed(object):
         """ Fetches and stores all entries from this feed's url. """
         content = requests.get(self.url).content
         if '</html>' in content:
-            self.entries.append(self.url + '#' + simplecrypto.hash(content))
+            text = re.sub('<.+?>', '', content)
+            self.entries.append(self.url + '#' + simplecrypto.hash(text))
             return
 
         if '<entry>' in content:
