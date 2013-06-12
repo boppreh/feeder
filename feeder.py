@@ -2,6 +2,7 @@ import os
 import re
 import requests
 import webbrowser
+import simplecrypto
 from HTMLParser import HTMLParser
 
 class Feed(object):
@@ -37,6 +38,10 @@ class Feed(object):
     def fetch(self):
         """ Fetches and stores all entries from this feed's url. """
         content = requests.get(self.url).content
+        if '</html>' in content:
+            self.entries.append(self.url + '#' + simplecrypto.hash(content))
+            print self.url + '#' + simplecrypto.hash(content)
+            return
 
         if '<entry>' in content:
             item_regex = '<entry[^>]*>(.+?)</entry>'
@@ -44,6 +49,11 @@ class Feed(object):
         elif '<item>' in content:
             item_regex = '<item>(.+?)</item>'
             link_regex = '<link[^>]*>(.+?)</link>'
+        else:
+            print 'Unknown feed format:'
+            print content
+            raw_input()
+            return
 
         for item_text in re.findall(item_regex, content, re.DOTALL):
             link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
