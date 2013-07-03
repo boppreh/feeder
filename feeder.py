@@ -38,26 +38,27 @@ class Feed(object):
     def fetch(self):
         """ Fetches and stores all entries from this feed's url. """
         content = requests.get(self.url).content
-        if '</html>' in content:
+
+        if 'twitter.com' in self.url:
+            self.entries.extend(i for i in re.findall('href="([^"]+)"', content)
+                                if 't.co' in i)
+        elif '</html>' in content:
             text = re.sub('<.+?>', '', content)
             self.entries.append(self.url + '#' + simplecrypto.hash(text))
-            return
-
-        if '<entry>' in content:
-            item_regex = '<entry[^>]*>(.+?)</entry>'
-            link_regex = '''<link[^>]+?href=.([^'"]+)'''
-        elif '<item>' in content:
-            item_regex = '<item>(.+?)</item>'
-            link_regex = '<link[^>]*>(.+?)</link>'
         else:
-            print 'Unknown feed format:'
-            print content
-            raw_input()
-            return
+            if '<entry>' in content:
+                item_regex = '<entry[^>]*>(.+?)</entry>'
+                link_regex = '''<link[^>]+?href=.([^'"]+)'''
+            elif '<item>' in content:
+                item_regex = '<item>(.+?)</item>'
+                link_regex = '<link[^>]*>(.+?)</link>'
+            else:
+                print 'Unknown feed format:'
+                print content
 
-        for item_text in re.findall(item_regex, content, re.DOTALL):
-            link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
-            self.entries.append(HTMLParser().unescape(link))
+            for item_text in re.findall(item_regex, content, re.DOTALL):
+                link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
+                self.entries.append(HTMLParser().unescape(link))
 
     def open_all_unread(self):
         """
