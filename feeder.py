@@ -69,17 +69,18 @@ class Feed(object):
                                 if entry not in Feed.entries_read]))
 
         if len(unread) > 5:
-            print 'Feed {} has {} unread entries, which is a lot.'.format(self.url, len(unread))
-            print 'Are you sure you want to open all those in your browser?'
-            option = raw_input('(y/N)')
-            if option != 'y':
+            print '{} has {} unread entries.'.format(self.url, len(unread))
+            print 'Do you want to open all (o), mark as read (r) or ignore (i)?'
+            option = raw_input('(o/r/I)').lower()
+            if option == 'r':
+                return
+            elif option == 'i':
                 # Discard the entries unread.
-                self.entries = list(Feed.entries_read.intersection(self.entries))
+                self.entries = list(set(self.entries) - set(unread))
                 return
 
-        for entry in reversed(self.entries):
-            if entry not in Feed.entries_read:
-                webbrowser.open(entry)
+        for entry in unread:
+            webbrowser.open(entry)
 
 def convert_feeds(subscription_path):
     """
