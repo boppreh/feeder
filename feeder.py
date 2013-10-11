@@ -5,97 +5,63 @@ import webbrowser
 import simplecrypto
 from HTMLParser import HTMLParser
 
-class Feed(object):
+def fetch(url):
     """
-    Class for each individual feed source.
+    Returns the entries in a given feed address.
     """
-    entries_read = set()
-    feeds = []
+    content = requests.get(url).content
 
-    @staticmethod
-    def load_entries_read_list(path):
-        """ Loads the entries from `path` into a static class attribute.  """
-        Feed.entries_read = set(open(path).read().split())
+    if 'twitter.com' in url:
+        return [i for i in re.findall('href="([^"]+)"', content) if 't.co' in i]
 
-    @staticmethod
-    def load_feeds_list(path):
-        """ Loads the feeds from `path` into a static class attribute.  """
-        Feed.feeds = map(Feed, open(path).read().split())
+    elif '</html>' in content:
+        text = re.sub('<.+?>', '', content)
+        return [url + '#' + simplecrypto.hash(text)]
 
-    @staticmethod
-    def save_all_entries(path):
-        """ Saves all entries from the known feeds into `path`.  """
-        entries = sum((feed.entries for feed in Feed.feeds), [])
-        open(path, 'w').write('\n'.join(entries))
-        # It overwrites the previous entries by design. Without this the
-        # entries file would grow without limits.
-
-    def __init__(self, url):
-        """ Creates a new Feed object from a URL, starting with no entries. """
-        self.url = url
-        self.entries = []
-
-    def fetch(self):
-        """ Fetches and stores all entries from this feed's url. """
-        content = requests.get(self.url).content
-
-        if 'twitter.com' in self.url:
-            self.entries.extend(i for i in re.findall('href="([^"]+)"', content)
-                                if 't.co' in i)
-        elif '</html>' in content:
-            text = re.sub('<.+?>', '', content)
-            self.entries.append(self.url + '#' + simplecrypto.hash(text))
+    else:
+        if '<entry>' in content:
+            item_regex = '<entry[^>]*>(.+?)</entry>'
+            link_regex = '''<link[^>]+?href=.([^'"]+)'''
+        elif '<item>' in content:
+            item_regex = '<item>(.+?)</item>'
+            link_regex = '<link[^>]*>(.+?)</link>'
         else:
-            if '<entry>' in content:
-                item_regex = '<entry[^>]*>(.+?)</entry>'
-                link_regex = '''<link[^>]+?href=.([^'"]+)'''
-            elif '<item>' in content:
-                item_regex = '<item>(.+?)</item>'
-                link_regex = '<link[^>]*>(.+?)</link>'
-            else:
-                print 'Unknown feed format:'
-                print content
+            print('Unknown feed format:')
+            print(content)
 
-            for item_text in re.findall(item_regex, content, re.DOTALL):
-                link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
-                self.entries.append(HTMLParser().unescape(link))
+        entries = []
+        for item_text in re.findall(item_regex, content, re.DOTALL):
+            link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
+            entries.append(HTMLParser().unescape(link))
 
-    def open_all_unread(self):
-        """
-        Open all feed entries not in Feed.entries_read in a new webbrowser tab.
-        """
-        self.fetch()
-        unread = list(reversed([entry for entry in self.entries
-                                if entry not in Feed.entries_read]))
+        return entries
 
-        if len(unread) > 5:
-            print '{} has {} unread entries.'.format(self.url, len(unread))
-            print 'Do you want to open all (o), mark as read (r) or ignore (i)?'
-            option = raw_input('(o/r/I)').lower()
-            if option == 'r':
-                return
-            elif option == 'i':
-                # Discard the entries unread.
-                self.entries = list(set(self.entries) - set(unread))
-                return
-
-        for entry in unread:
-            webbrowser.open(entry)
-
-def convert_feeds(subscription_path):
+def open_all_unread(feed_url, ignore, entries_read):
     """
-    Import Google Reader subscriptions file and write the feeds found to the
-    feeds file.
+    Opens the unread items from a feed url. Items are considered read if they
+    are in the `ignore` set, and `entries_read` is updated with the entries
+    seen.
     """
-    with open(subscription_path) as subscription_file:
-        content = subscription_file.read()
+    entries = fetch(feed_url)
+    unread = list(reversed([entry for entry in entries
+                            if entry not in ignore]))
 
-    urls = re.findall('xmlUrl="(.+?)"', content)
+    if len(unread) > 5:
+        print '{} has {} unread entries.'.format(feed_url, len(unread))
+        print 'Do you want to open all (o), mark as read (r) or ignore (i)?'
+        option = raw_input('(o/r/I)').lower()
+        if option == 'r':
+            entries_read.update(entries)
+            return
+        elif option == 'i':
+            return
 
-    with open(Feed.feeds_file_path, 'a') as feeds_file:
-        feeds_file.write('\n'.join(urls) + '\n')
+    for entry in unread:
+        webbrowser.open(entry)
 
-def bounded_parallel_run(functions, max_concurrent=8):
+    entries_read.update(entries)
+
+def bounded_parallel_run(function, args, max_concurrent=8):
     """
     Runs `functions` in parallel threads, with up to `max_concurrent` threads
     at the same time. Roughly equivalent to ThreadPoolExecutor in Python 3k.
@@ -106,15 +72,15 @@ def bounded_parallel_run(functions, max_concurrent=8):
     threads = []
     semaphore = Semaphore(max_concurrent)
 
-    def run_locked(function):
+    def run_locked(function, arg):
         semaphore.acquire()
-        function()
+        function(arg)
         sys.stdout.write('.')
         semaphore.release()
         
-    sys.stdout.write('#' * len(functions) + '\n')
-    for function in functions:
-        thread = Thread(target=run_locked, args=(function,))
+    sys.stdout.write('#' * len(args) + '\n')
+    for arg in args:
+        thread = Thread(target=run_locked, args=(function, arg))
         thread.start()
         threads.append(thread)
 
@@ -122,24 +88,17 @@ def bounded_parallel_run(functions, max_concurrent=8):
         thread.join()
 
 if __name__ == '__main__':
-    # Convert subscriptions.xml into feeds.txt.
-    if os.path.exists('subscriptions.xml'):
-        convert_feeds('subscriptions.xml')
-        os.rename('subscriptions.xml', 'subscriptions (already imported).xml')
+    feeds_file = open('feeds.txt', 'r+')
+    feeds_urls = filter(len, feeds_file.read().split('\n'))
+    entries_file = open('read.txt', 'r+')
+    entries_already_read = set(filter(len, entries_file.read().split('\n')))
+    entries_read_now = set()
 
-    # Load feeds file.
-    Feed.load_feeds_list('feeds.txt')
+    def process_feed(feed_url):
+        open_all_unread(feed_url, entries_already_read, entries_read_now)
 
-    if os.path.exists('read.txt'):
-        # Common path, opens all unread entries.
-        Feed.load_entries_read_list('read.txt')
-        bounded_parallel_run([feed.open_all_unread for feed in Feed.feeds])
-    else:
-        # First execution path, doesn't open anything.
-        print "`read.txt` not found, marking all feeds' items as read."
-        for feed in Feed.feeds:
-            print 'Loading entries from', feed.url
-            feed.fetch()
+    bounded_parallel_run(process_feed, feeds_urls)
 
-    # Cleans entries file and save the new entries.
-    Feed.save_all_entries('read.txt')
+    entries_file.seek(0)
+    entries_file.write('\n'.join(sorted(entries_read_now)))
+    entries_file.truncate()
