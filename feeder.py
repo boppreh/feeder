@@ -95,7 +95,14 @@ if __name__ == '__main__':
     entries_read_now = set()
 
     def process_feed(feed_url):
-        open_all_unread(feed_url, entries_already_read, entries_read_now)
+        try:
+            open_all_unread(feed_url, entries_already_read, entries_read_now)
+        except:
+            # Without this we would lose the list of items read for this feed.
+            # It does persist _all_ read items, but we assume the issue will be
+            # fixed in the future and the list will be trimmed back naturally.
+            entries_read_now.update(entries_already_read)
+            raise
 
     bounded_parallel_run(process_feed, feeds_urls)
 
