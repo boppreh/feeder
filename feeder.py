@@ -54,12 +54,15 @@ def open_all_unread(feed_url, ignore, entries_read):
             entries_read.update(entries)
             return
         elif option == 'i':
+            # Migrate the previously read items from the old set to the new
+            # one. Since we don't know which entries belong to which feeds,
+            # include everything.
+            entries_read.update(ignore)
             return
 
     for entry in unread:
         webbrowser.open(entry)
-
-    entries_read.update(entries)
+        entries_read.add(entry)
 
 def bounded_parallel_run(function, args, max_concurrent=8):
     """
