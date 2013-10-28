@@ -109,6 +109,8 @@ if __name__ == '__main__':
 
     bounded_parallel_run(process_feed, feeds_urls)
 
+    all_entries = entries_read_now.union(entries_already_read)
+
     entries_file.seek(0)
-    entries_file.write('\n'.join(sorted(entries_read_now)))
+    entries_file.write('\n'.join(sorted(all_entries)))
     entries_file.truncate()
