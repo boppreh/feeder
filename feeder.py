@@ -61,8 +61,8 @@ def open_all_unread(feed_url, ignore, entries_read):
             return
 
     for entry in unread:
-        print('Opening ', entry)
-        #webbrowser.open(entry)
+        #print('Opening ', entry)
+        webbrowser.open(entry)
         entries_read.add(entry)
 
 def bounded_parallel_run(function, args, max_concurrent=8):
