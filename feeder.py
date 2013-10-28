@@ -2,19 +2,19 @@ import os
 import re
 import requests
 import webbrowser
-import simplecrypto
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 
 def fetch(url):
     """
     Returns the entries in a given feed address.
     """
-    content = requests.get(url).content
+    content = requests.get(url).text
 
     if 'twitter.com' in url:
         return [i for i in re.findall('href="([^"]+)"', content) if 't.co' in i]
 
     elif '</html>' in content:
+        import simplecrypto
         text = re.sub('<.+?>', '', content)
         return [url + '#' + simplecrypto.hash(text)]
 
@@ -47,9 +47,9 @@ def open_all_unread(feed_url, ignore, entries_read):
                             if entry not in ignore]))
 
     if len(unread) > 5:
-        print '{} has {} unread entries.'.format(feed_url, len(unread))
-        print 'Do you want to open all (o), mark as read (r) or ignore (i)?'
-        option = raw_input('(o/r/I)').lower()
+        print('{} has {} unread entries.'.format(feed_url, len(unread)))
+        print('Do you want to open all (o), mark as read (r) or ignore (i)?')
+        option = input('(o/r/I)').lower()
         if option == 'r':
             entries_read.update(entries)
             return
@@ -61,7 +61,8 @@ def open_all_unread(feed_url, ignore, entries_read):
             return
 
     for entry in unread:
-        webbrowser.open(entry)
+        print('Opening ', entry)
+        #webbrowser.open(entry)
         entries_read.add(entry)
 
 def bounded_parallel_run(function, args, max_concurrent=8):
@@ -70,7 +71,6 @@ def bounded_parallel_run(function, args, max_concurrent=8):
     at the same time. Roughly equivalent to ThreadPoolExecutor in Python 3k.
     """
     from threading import Thread, Semaphore
-    import sys
 
     threads = []
     semaphore = Semaphore(max_concurrent)
@@ -78,10 +78,10 @@ def bounded_parallel_run(function, args, max_concurrent=8):
     def run_locked(function, arg):
         semaphore.acquire()
         function(arg)
-        sys.stdout.write('.')
+        print('.', sep='', end='')
         semaphore.release()
         
-    sys.stdout.write('#' * len(args) + '\n')
+    print('#' * len(args))
     for arg in args:
         thread = Thread(target=run_locked, args=(function, arg))
         thread.start()
@@ -92,7 +92,7 @@ def bounded_parallel_run(function, args, max_concurrent=8):
 
 if __name__ == '__main__':
     feeds_file = open('feeds.txt', 'r+')
-    feeds_urls = filter(len, feeds_file.read().split('\n'))
+    feeds_urls = set(filter(len, feeds_file.read().split('\n')))
     entries_file = open('read.txt', 'r+')
     entries_already_read = set(filter(len, entries_file.read().split('\n')))
     entries_read_now = set()
