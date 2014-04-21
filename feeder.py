@@ -14,9 +14,8 @@ def fetch(url):
         return [i for i in re.findall('href="([^"]+)"', content) if 't.co' in i]
 
     elif '</html>' in content:
-        import simplecrypto
         text = re.sub('<.+?>', '', content)
-        return [url + '#' + simplecrypto.hash(text)]
+        return ['{}#{}'.format(url, hash(text))]
 
     else:
         if '<entry>' in content:
@@ -26,15 +25,13 @@ def fetch(url):
             item_regex = '<item>(.+?)</item>'
             link_regex = '<link[^>]*>(.+?)</link>'
         else:
-            print('Unknown feed format:')
+            print('Unknown feed format ({}):'.format(url))
             print(content)
+            return
 
-        entries = []
         for item_text in re.findall(item_regex, content, re.DOTALL):
             link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
-            entries.append(HTMLParser().unescape(link))
-
-        return entries
+            yield HTMLParser().unescape(link)
 
 def open_all_unread(feed_url, ignore, entries_read):
     """
@@ -42,7 +39,7 @@ def open_all_unread(feed_url, ignore, entries_read):
     are in the `ignore` set, and `entries_read` is updated with the entries
     seen.
     """
-    entries = fetch(feed_url)
+    entries = list(fetch(feed_url))
     unread = list(reversed([entry for entry in entries
                             if entry not in ignore]))
 
