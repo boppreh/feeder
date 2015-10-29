@@ -3,6 +3,7 @@ import re
 import requests
 import webbrowser
 from html.parser import HTMLParser
+import sys
 
 def fetch(url):
     """
@@ -25,8 +26,8 @@ def fetch(url):
             item_regex = '<item>(.+?)</item>'
             link_regex = '<link[^>]*>(.+?)</link>'
         else:
-            print('Unknown feed format ({}):'.format(url))
-            print(content)
+            print('Unknown feed format ({}):'.format(url), file=sys.stderr)
+            print(content, file=sys.stderr)
             return
 
         for item_text in re.findall(item_regex, content, re.DOTALL):
@@ -75,10 +76,10 @@ def bounded_parallel_run(function, args, max_concurrent=8):
     def run_locked(function, arg):
         semaphore.acquire()
         function(arg)
-        print('.', sep='', end='')
+        #print('.', sep='', end='', file=sys.stderr)
         semaphore.release()
         
-    print('#' * len(args))
+    #print('#' * len(args), file=sys.stderr)
     for arg in args:
         thread = Thread(target=run_locked, args=(function, arg))
         thread.start()
@@ -88,26 +89,23 @@ def bounded_parallel_run(function, args, max_concurrent=8):
         thread.join()
 
 if __name__ == '__main__':
-    feeds_file = open('feeds.txt', 'r+')
-    feeds_urls = set(filter(len, feeds_file.read().split('\n')))
+    feeds_urls = set(filter(len, open('feeds.txt').read().split('\n')))
     entries_file = open('read.txt', 'r+')
-    entries_already_read = set(filter(len, entries_file.read().split('\n')))
-    entries_read_now = set()
+    entries_read = set(filter(len, entries_file.read().split('\n')))
 
     def process_feed(feed_url):
         try:
-            open_all_unread(feed_url, entries_already_read, entries_read_now)
+            unread = reversed([entry for entry in fetch(feed_url)
+                               if entry not in entries_read])
+            for entry in unread:
+                print(entry)
+                entries_read.add(entry)
         except:
-            # Without this we would lose the list of items read for this feed.
-            # It does persist _all_ read items, but we assume the issue will be
-            # fixed in the future and the list will be trimmed back naturally.
-            entries_read_now.update(entries_already_read)
+            print('Error processing ' + feed_url, file=sys.stderr)
             raise
 
     bounded_parallel_run(process_feed, feeds_urls)
 
-    all_entries = entries_read_now.union(entries_already_read)
-
     entries_file.seek(0)
-    entries_file.write('\n'.join(sorted(all_entries)))
+    entries_file.write('\n'.join(sorted(entries_read)))
     entries_file.truncate()
