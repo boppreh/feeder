@@ -9,7 +9,11 @@ def fetch(url):
     """
     Returns the entries in a given feed address.
     """
-    content = requests.get(url).text
+    try:
+        content = requests.get(url, timeout=1).text
+    except requests.exceptions.Timeout:
+        #print('Failed to GET {}'.format(url))
+        return []
 
     if 'twitter.com' in url:
         return [i for i in re.findall('href="([^"]+)"', content) if 't.co' in i]
@@ -30,9 +34,11 @@ def fetch(url):
             print(content, file=sys.stderr)
             return
 
+        items = []
         for item_text in re.findall(item_regex, content, re.DOTALL):
             link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
-            yield HTMLParser().unescape(link)
+            items.append(HTMLParser().unescape(link))
+        return sorted(set(items), key=lambda i: items.index(i))
 
 def open_all_unread(feed_url, ignore, entries_read):
     """
@@ -100,9 +106,8 @@ if __name__ == '__main__':
             for entry in unread:
                 print(entry)
                 entries_read.add(entry)
-        except:
-            print('Error processing ' + feed_url, file=sys.stderr)
-            raise
+        except Exception as e:
+            print('Error processing {} ({})'.format(feed_url, e), file=sys.stderr)
 
     bounded_parallel_run(process_feed, feeds_urls)
 
