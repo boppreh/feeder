@@ -2,25 +2,27 @@ import os
 import re
 import requests
 import webbrowser
-from html.parser import HTMLParser
+from html import unescape
 import sys
+import concurrent.futures
 
 def fetch(url):
     """
     Returns the entries in a given feed address.
     """
     try:
-        content = requests.get(url, timeout=1).text
-    except requests.exceptions.Timeout:
-        #print('Failed to GET {}'.format(url))
+        content = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0',
+        } if 'tapas.io' in url else None, timeout=2).text
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
         return []
 
     if 'twitter.com' in url:
         return [i for i in re.findall('href="([^"]+)"', content) if 't.co' in i]
 
-    elif '</html>' in content:
-        text = re.sub('<.+?>', '', content)
-        return ['{}#{}'.format(url, hash(text))]
+    #elif '</html>' in content:
+    #    text = re.sub('<.+?>', '', content)
+    #    return ['{}#{}'.format(url, hash(text))]
 
     else:
         if '<entry>' in content:
@@ -32,85 +34,62 @@ def fetch(url):
         else:
             print('Unknown feed format ({}):'.format(url), file=sys.stderr)
             print(content, file=sys.stderr)
-            return
+            return []
 
         items = []
         for item_text in re.findall(item_regex, content, re.DOTALL):
             link = re.findall(link_regex, item_text, re.DOTALL)[0].strip()
-            items.append(HTMLParser().unescape(link))
+            items.append(unescape(link))
         return sorted(set(items), key=lambda i: items.index(i))
 
-def open_all_unread(feed_url, ignore, entries_read):
+def open_all_unseen(feed_url, ignore, entries_seen):
     """
-    Opens the unread items from a feed url. Items are considered read if they
-    are in the `ignore` set, and `entries_read` is updated with the entries
+    Opens the unseen items from a feed url. Items are considered seen if they
+    are in the `ignore` set, and `entries_seen` is updated with the entries
     seen.
     """
     entries = list(fetch(feed_url))
-    unread = list(reversed([entry for entry in entries
+    unseen = list(reversed([entry for entry in entries
                             if entry not in ignore]))
 
-    if len(unread) > 5:
-        print('{} has {} unread entries.'.format(feed_url, len(unread)))
-        print('Do you want to open all (o), mark as read (r) or ignore (i)?')
+    if len(unseen) > 5:
+        print('{} has {} unseen entries.'.format(feed_url, len(unseen)))
+        print('Do you want to open all (o), mark as seen (r) or ignore (i)?')
         option = input('(o/r/I)').lower()
         if option == 'r':
-            entries_read.update(entries)
+            entries_seen.update(entries)
             return
         elif option == 'i':
-            # Migrate the previously read items from the old set to the new
+            # Migrate the previously seen items from the old set to the new
             # one. Since we don't know which entries belong to which feeds,
             # include everything.
-            entries_read.update(ignore)
+            entries_seen.update(ignore)
             return
 
-    for entry in unread:
+    for entry in unseen:
         #print('Opening ', entry)
         webbrowser.open(entry)
-        entries_read.add(entry)
-
-def bounded_parallel_run(function, args, max_concurrent=8):
-    """
-    Runs `functions` in parallel threads, with up to `max_concurrent` threads
-    at the same time. Roughly equivalent to ThreadPoolExecutor in Python 3k.
-    """
-    from threading import Thread, Semaphore
-
-    threads = []
-    semaphore = Semaphore(max_concurrent)
-
-    def run_locked(function, arg):
-        semaphore.acquire()
-        function(arg)
-        #print('.', sep='', end='', file=sys.stderr)
-        semaphore.release()
-        
-    #print('#' * len(args), file=sys.stderr)
-    for arg in args:
-        thread = Thread(target=run_locked, args=(function, arg))
-        thread.start()
-        threads.append(thread)
-
-    for thread in threads:
-        thread.join()
+        entries_seen.add(entry)
 
 if __name__ == '__main__':
-    feeds_urls = set(filter(len, open('feeds.txt').read().split('\n')))
-    entries_file = open('read.txt', 'r+')
-    entries_read = set(filter(len, entries_file.read().split('\n')))
+    feeds_urls = open('feeds.txt').read().strip().split('\n')
+    with open('seen.txt', 'r+') as f:
+        entries_seen = dict.fromkeys(filter(len, f.read().split('\n')))
+    entries_new = []
 
-    def process_feed(feed_url):
-        try:
-            unread = reversed([entry for entry in fetch(feed_url)
-                               if entry not in entries_read])
-            for entry in unread:
-                print(entry)
-                entries_read.add(entry)
-        except Exception as e:
-            print('Error processing {} ({})'.format(feed_url, e), file=sys.stderr)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for feed_url in feeds_urls:
+            futures.append(executor.submit(fetch, feed_url))
+        for future in concurrent.futures.as_completed(futures):
+            for entry in future.result():
+                #print(entry)
+                if entry not in entries_seen:
+                    entries_new.append(entry)
+                    entries_seen[entry] = True
 
-    bounded_parallel_run(process_feed, feeds_urls)
-
-    entries_file.seek(0)
-    entries_file.write('\n'.join(sorted(entries_read)))
-    entries_file.truncate()
+    if entries_new:
+        with open('seen.txt', 'a') as f:
+            f.write('\n'.join(entries_new) + '\n')
+        with open('new.txt', 'a') as f:
+            f.write('\n'.join(entries_new) + '\n')
